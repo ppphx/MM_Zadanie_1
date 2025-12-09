@@ -1,0 +1,74 @@
+import numpy as np
+import random
+
+def simulate_mmo(n_channels=3, total_minutes=500, lambda_per_hour=1.0):
+    prob_numerator = 1   # 1/60 для λ=1/ч
+    prob_denominator = 60
+    mean_service_time_min = 1.8 * 60  # 108 минут
+
+    # Состояние каналов: список оставшегося времени обслуживания
+    channel_times = [0] * n_channels
+
+    arrivals = 0
+    rejections = 0
+    serviced = 0
+    state_counts = [0] * (n_channels + 1)  # state_counts[i] = время в состоянии i
+
+    for t in range(total_minutes):
+        # Обновление состояния каналов
+        for i in range(n_channels):
+            if channel_times[i] > 0:
+                channel_times[i] -= 1
+
+        # Генерация заявки
+        if random.randint(1, prob_denominator) <= prob_numerator:
+            arrivals += 1
+            # Поиск свободного канала
+            free_channel = None
+            for i in range(n_channels):
+                if channel_times[i] == 0:
+                    free_channel = i
+                    break
+            if free_channel is not None:
+                # Начинаем обслуживание
+                service_time = int(max(1, np.random.exponential(mean_service_time_min)))
+                channel_times[free_channel] = service_time
+                serviced += 1
+            else:
+                # Все каналы заняты — отказ
+                rejections += 1
+
+        # Подсчёт текущего состояния
+        busy_count = sum(1 for time in channel_times if time > 0)
+        state_counts[busy_count] += 1
+
+    # Расчёт характеристик
+    P_rej = rejections / arrivals if arrivals > 0 else 0.0
+    Q = 1 - P_rej
+    A = serviced / (total_minutes / 60.0)  # задач/ч
+    avg_busy = sum(i * state_counts[i] for i in range(n_channels + 1)) / total_minutes
+    k_z = avg_busy / n_channels
+    T_cmo = avg_busy / lambda_per_hour  # по формуле Литтла из условия
+
+    return {
+        'arrivals': arrivals,
+        'rejections': rejections,
+        'serviced': serviced,
+        'P_rej': P_rej,
+        'Q': Q,
+        'A': A,
+        'avg_busy': avg_busy,
+        'k_z': k_z,
+        'T_cmo': T_cmo,
+        'state_counts': state_counts
+    }
+
+# Запуск для 500 минут
+np.random.seed(42)
+random.seed(42)
+
+result_500 = simulate_mmo(n_channels=3, total_minutes=500)
+print("Испытание 500 минут")
+for k, v in result_500.items():
+    if k != 'state_counts':
+        print(f"{k}: {v:.4f}")
