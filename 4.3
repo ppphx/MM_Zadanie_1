@@ -1,0 +1,54 @@
+def simulate_mmo_different_mu(n_channels=3, mu_list=[0.5, 0.6, 0.7], total_minutes=6000):
+    # mu_list: интенсивности каждого канала
+    # Переводим в минуты
+    mean_times = [1 / mu for mu in mu_list]  # среднее время в минутах
+
+    channel_times = [0] * n_channels
+    channel_mu = mu_list.copy()
+
+    arrivals = 0
+    rejections = 0
+    serviced = 0
+    state_counts = [0] * (n_channels + 1)
+
+    for t in range(total_minutes):
+        # Обновление каналов
+        for i in range(n_channels):
+            if channel_times[i] > 0:
+                channel_times[i] -= 1
+
+        # Генерация заявки
+        if random.randint(1, 60) <= 1:  # λ = 1/ч
+            arrivals += 1
+            # Поиск свободного канала (приоритет — по убыванию μ)
+            free_channels = [i for i in range(n_channels) if channel_times[i] == 0]
+            if free_channels:
+                # Выбираем канал с максимальной интенсивностью
+                chosen_channel = max(free_channels, key=lambda i: channel_mu[i])
+                service_time = int(max(1, np.random.exponential(mean_times[chosen_channel])))
+                channel_times[chosen_channel] = service_time
+                serviced += 1
+            else:
+                rejections += 1
+
+        # Подсчёт состояния
+        busy_count = sum(1 for time in channel_times if time > 0)
+        state_counts[busy_count] += 1
+
+    # Расчёт характеристик
+    P_rej = rejections / arrivals if arrivals > 0 else 0.0
+    Q = 1 - P_rej
+    A = serviced / (total_minutes / 60.0)
+    avg_busy = sum(i * state_counts[i] for i in range(n_channels + 1)) / total_minutes
+    k_z = avg_busy / n_channels
+    T_cmo = avg_busy / 1.0  
+
+    return {
+        'P_rej': P_rej,
+        'Q': Q,
+        'A': A,
+        'avg_busy': avg_busy,
+        'k_z': k_z,
+        'T_cmo': T_cmo,
+        'state_counts': state_counts
+    }
